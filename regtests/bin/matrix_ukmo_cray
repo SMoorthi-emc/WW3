@@ -1,11 +1,15 @@
 #!/bin/bash
 # --------------------------------------------------------------------------- #
-# matrix.go: Run matrix of regression tests on target machine.                #
+# matrix_ukmo_cray: Run matrix of regression tests on Cray XC architecture    #
+#   as currently used at the UK Met Office.                                   #
 #                                                                             #
 # Remarks:                                                                    #
-# - This version is set up for automatic w3_setenv script and for the         #
-#   IFREMER HPC 'datarmor'. When using this for your own setup and            #
-#   computer, please copy rather than modify.                                 #
+#   Currently, programs using the PDLIB switch (METIS library) crash when     #
+#   compiled with the Cray CCE compiler. For those regtests that use PDLIB    #
+#   it is required to use the GNU compiler.                                   #
+#                                                                             #
+#                                                      Chris Bunney           #
+#                                                      April 2019             #
 #                                                                             #
 #                                                      Hendrik L. Tolman      #
 #                                                      August 2013            #
@@ -31,15 +35,23 @@
   echo "Save source codes : $source"
   echo "Save listings     : $list"
 
+  # Set Cray compiler variant; CCE (Cray Compiler Environment) or GNU.
+  # Use GNU for programs compiled with PDLIB, CCE for all others.
+  comp="CCE"
+  #comp = "GNU"
 
-# 1. Set up
-# 1.a Computer/ user dependent set up
 
-  echo '#!/bin/bash'                                        > matrix.head
+# 1. Set up for compilation environemnt on Cray XC (broadwell processors)
+
+  echo '#!/bin/bash'                                         > matrix.head
   echo ' '                                                  >> matrix.head
-  echo '#PBS -q mpi_2'                                      >> matrix.head
-  echo '#PBS -l mem=20G'                                    >> matrix.head
-  echo '#PBS -l walltime=48:00:00'                          >> matrix.head
+
+# Run everything on single node in shared queue (compilation on compute
+# nodes via parallel queue is inefficient and wasteful of resources):
+  echo '#PBS -l ncpus=16'                                   >> matrix.head
+  echo '#PBS -l mem=16GB'                                   >> matrix.head
+  echo '#PBS -q shared'                                     >> matrix.head
+  echo '#PBS -l walltime=04:00:00'                          >> matrix.head
   echo '#PBS -N ww3_regtest'                                >> matrix.head
   echo '#PBS -j oe'                                         >> matrix.head
   echo '#PBS -o matrix.out'                                 >> matrix.head
@@ -48,65 +60,43 @@
   echo "  cd $(dirname $main_dir)/regtests"                 >> matrix.head
   echo ' '                                                  >> matrix.head
 
-# Netcdf modules
+if [[ $comp == "CCE" ]]; then
+  # Load targetted versions of Cray Development Tools (bug in Fortran StreamIO
+  # for older versions) and netCDF/HDF5 modules:
+    echo "  module load  cdt/18.12"                         >> matrix.head
+    echo "  module load cray-netcdf/4.6.1.3"                >> matrix.head
+    echo "  module load cray-hdf5/1.10.2.0"                 >> matrix.head
+    echo "  export METIS_PATH=/home/d02/frey/WW3/ParMETIS"  >> matrix.head
+elif [[ $comp == "GNU" ]]; then
+    # ParMETIS library not currently working with Cray compiler.
+    # Use GNU compiler for programs that use PDLIB.
+    echo "  module switch PrgEnv-cray PrgEnv-gnu/5.2.82"    >> matrix.head
+    echo "  module load cray-netcdf"                        >> matrix.head
+    echo "  export METIS_PATH=/home/d02/frey/WW3/ParMETIS_GNU" >> matrix.head
+fi
 
-  cmplr=datarmor_mpt_debug
+# SNP Launcher 7.7.4 allows -np switch:
+  echo "  module load cray-snplauncher/7.7.4"               >> matrix.head
 
-  echo '  source /usr/share/Modules/3.2.10/init/bash'                                 >> matrix.head
-  echo '  module purge'                                                               >> matrix.head
-  echo '  export WWATCH3_NETCDF=NC4'                                                  >> matrix.head
-  echo "  export WW3_PARCOMPN=4"                                                      >> matrix.head
-
-  if [ $cmplr = "datarmor_intel_debug" ]
-  then
-    echo '  module load intel-comp/18'                                                >> matrix.head
-    echo '  module load impi/2018.1.163'                                              >> matrix.head
-    echo '  export PATH=/home/datawork-wave/NETCDF-FINAL/INTEL/bin::${PATH}'          >> matrix.head
-    echo '  export NETCDF_CONFIG=/home/datawork-wave/NETCDF-FINAL/INTEL/bin/nf-config'>> matrix.head
-    echo '  export METIS_PATH=/home/datawork-wave/PARMETIS/INTEL'                     >> matrix.head
-
-  elif [ $cmplr = "datarmor_mpt_debug" ]
-  then
-    echo '  module load intel-comp/18'                                                >> matrix.head
-    echo '  module load mpt/2.15'                                                     >> matrix.head
-    echo '  export PATH=/home/datawork-wave/NETCDF-FINAL/MPT/bin::${PATH}'            >> matrix.head
-    echo '  export NETCDF_CONFIG=/home/datawork-wave/NETCDF-FINAL/MPT/bin/nf-config'  >> matrix.head
-    echo '  export METIS_PATH=/home/datawork-wave/PARMETIS/MPT'                       >> matrix.head
-
-  elif [ $cmplr = "datarmor_gnu_debug" ]
-  then
-    echo '  module load impi/2018.1.163'                                              >> matrix.head
-    echo '  export PATH=/home/datawork-wave/NETCDF-FINAL/GNU/bin::${PATH}'            >> matrix.head
-    echo '  export NETCDF_CONFIG=/home/datawork-wave/NETCDF-FINAL/GNU/bin/nf-config'  >> matrix.head
-    echo '  export METIS_PATH=/home/datawork-wave/PARMETIS/GNU'                       >> matrix.head
-
-  elif [ $cmplr = "datarmor_pgi_debug" ]
-  then
-    echo '  module load pgi/17.10'                                                   >> matrix.head
-    echo '  module load mpt/2.17'                                                    >> matrix.head
-    echo '  export PATH=/home/datawork-wave/NETCDF-FINAL/PGI/bin::${PATH}'            >> matrix.head
-    echo '  export NETCDF_CONFIG=/home/datawork-wave/NETCDF-FINAL/PGI/bin/nf-config'  >> matrix.head
-    echo '  export METIS_PATH=/home/datawork-wave/PARMETIS/PGI'                       >> matrix.head
-
-  fi
-
-  echo ' '
+  echo "  export WWATCH3_NETCDF=NC4"                        >> matrix.head
+  echo "  export NETCDF_CONFIG=\$(which nc-config)"         >> matrix.head
 
 # Compiler option. Choose appropriate compiler and set cmplOption to
 # y if using for the first time or using a different compiler
 
-  export cmplOption='y'
+  cmplr=cray_xc.${comp}
+  export cmplOption='n'
 
-  export  mpi='$MPI_LAUNCH'
-  export   np='56'
-  export   nr='28'
-  export  nth='2'
+  export  mpi='mpiexec'
+  export   np='16'
+  export   nr='4'
+  export  nth='4'
 
   if [ "$cmplOption" = 'y' ]
   then
-     export rtst="./bin/run_test -o both -N -f -S -T -c $cmplr"
+     export rtst="./bin/run_test -c $cmplr -S"
   else
-     export rtst="./bin/run_test -o both -N -f -S -T"
+     export rtst="./bin/run_test -S"
   fi
 
   export  ww3='../model'
@@ -117,7 +107,7 @@
   export     shrd='y' # Do shared architecture tests
   export     dist='y' # Do distributed architecture (MPI) tests
   export      omp='y' # Threaded (OpenMP) tests
-  export     hybd='n' # Hybrid options
+  export     hybd='y' # Hybrid options
 
   export   prop1D='y' # 1-D propagation tests (ww3_tp1.X)
   export   prop2D='y' # 2-D propagation tests (ww3_tp2.X)
