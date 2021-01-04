@@ -427,10 +427,11 @@
 
       IF ( WRITE ) THEN
           IF ( .NOT.IOSFLG .OR. IAPROC.EQ.NAPRST )                    &
-          OPEN (NDSR,FILE=FNMPRE(:J)//FNAME,FORM='UNFORMATTED',       &
+          print*,"FNAME-- ",FNMPRE(:J)//trim(FNAME)
+          OPEN (NDSR,FILE=FNMPRE(:J)//trim(FNAME),FORM='UNFORMATTED', &
                 ACCESS='STREAM',ERR=800,IOSTAT=IERR)
         ELSE
-          OPEN (NDSR,FILE=FNMPRE(:J)//FNAME,FORM='UNFORMATTED',       &
+          OPEN (NDSR,FILE=FNMPRE(:J)//trim(FNAME),FORM='UNFORMATTED', &
                 ACCESS='STREAM',ERR=800,IOSTAT=IERR,                  &
                 STATUS='OLD',ACTION='READ')
         END IF
