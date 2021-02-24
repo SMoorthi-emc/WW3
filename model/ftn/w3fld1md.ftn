@@ -176,7 +176,8 @@
                                  ZWND, DEPTH, RIB, FPI
       REAL, INTENT(OUT)       :: UST, USTD, Z0 
       REAL, INTENT(OUT), OPTIONAL :: CHARN
-      REAL, INTENT(INOUT)     :: TAUNUX, TAUNUY
+!     REAL, INTENT(INOUT)     :: TAUNUX, TAUNUY
+      REAL, INTENT(OUT)       :: TAUNUX, TAUNUY
 !/
 !/ ------------------------------------------------------------------- /
 !/ Local parameters
@@ -525,8 +526,8 @@
             ENDDO
             TAUY=TLTN(NKT) !by NKT full stress is entirely 
             TAUX=TLTE(NKT) !from turbulent stress
-            TAUT=SQRT(TAUY**2.0+TAUX**2.0)
-            USTAR=SQRT(SQRT(TAUY**2.0+TAUX**2.0)/DAIR)
+            TAUT=SQRT(TAUY**2+TAUX**2)
+            USTAR=SQRT(SQRT(TAUY**2+TAUX**2)/DAIR)
             TAUDIR=atan2(TAUY, TAUX)
 ! Note: add another criterion (stress direction) for iteration.
             CRIT1=(ABS(USTAR-USTRB)*100.0)/((USTAR+USTRB)*0.5) .GT. 0.1
@@ -554,7 +555,7 @@
           DO I=1,NKT
             ZOFK(I)=DELTA/WN(I)
           ENDDO
-          ZNU=0.1 * 1.45E-5 / SQRT(SQRT(TAUNUX**2.0+TAUNUY**2.0)/DAIR)
+          ZNU=0.1 * 1.45E-5 / SQRT(SQRT(TAUNUX**2+TAUNUY**2)/DAIR)
           UPROF(1:NKT+1)=0.0
           VPROF(1:NKT+1)=0.0
           UPROFV=0.0
@@ -573,11 +574,11 @@
                     + TLTN(ZI) * TAUY )
           UP(ZI) = UP1(ZI)
           VP(ZI) = VP1(ZI)
-          UPROF(ZI) = DAIR / KAPPA * ( SQRT( TAUNUX**2.0 + TAUNUY**2.0 ) &
+          UPROF(ZI) = DAIR / KAPPA * ( SQRT( TAUNUX**2 + TAUNUY**2 ) &
                       / DAIR )**(1.5) * ( TAUNUX / ( TAUX * &
                       TAUNUX + TAUY * TAUNUY ) ) * LOG( &
                       ZOFK(Z2) / ZNU )
-          VPROF(ZI) = DAIR / KAPPA * ( SQRT( TAUNUX**2.0 + TAUNUY**2.0 ) &
+          VPROF(ZI) = DAIR / KAPPA * ( SQRT( TAUNUX**2 + TAUNUY**2 ) &
                       / DAIR )**(1.5) * ( TAUNUY / ( TAUX * &
                       TAUNUX + TAUY * TAUNUY ) ) * LOG( &
                       ZOFK(Z2) / ZNU )
@@ -585,14 +586,14 @@
 !wave, not just to the top of wave boundary layer (previous)
           DO ZI=2, NKT
             Z2 = Z2 - 1
-            UP1(ZI) = ( ( ( WN(Z2)**2.0 / DELTA ) * FTILDE(Z2) ) + &
+            UP1(ZI) = ( ( ( WN(Z2)**2 / DELTA ) * FTILDE(Z2) ) + &
                       ( DAIR / ( ZOFK(Z2) * KAPPA ) ) * ( SQRT( &
-                      TLTN(ZI)**2.0 + TLTE(ZI)**2.0 ) / DAIR )**(1.5) ) &
+                      TLTN(ZI)**2 + TLTE(ZI)**2 ) / DAIR )**(1.5) ) &
                       * ( TLTE(ZI) ) / ( TLTE(ZI) * TAUX + &
                       TLTN(ZI) * TAUY )
-            VP1(ZI) = ( ( ( WN(Z2)**2.0 / DELTA ) * FTILDE(Z2) ) + &
+            VP1(ZI) = ( ( ( WN(Z2)**2 / DELTA ) * FTILDE(Z2) ) + &
                       ( DAIR / ( ZOFK(Z2) * KAPPA ) ) * ( SQRT( &
-                      TLTN(ZI)**2.0 + TLTE(ZI)**2.0 ) / DAIR )**(1.5) ) &
+                      TLTN(ZI)**2 + TLTE(ZI)**2 ) / DAIR )**(1.5) ) &
                       * ( TLTN(ZI) ) / ( TLTE(ZI) * TAUX + &
                       TLTN(ZI) * TAUY )
             UP(ZI) = UP1(ZI) * 0.5 + UP1(ZI-1) * 0.5
@@ -605,13 +606,13 @@
 !|---------------------------------------------------------------------|
           !ZI = ( KB + 1 )
           ! Now solving for 'ZWND' height wind 
-          UPROF(NKT+1) = UPROF(NKT) + ( SQRT( SQRT( TAUY**2.0 + &
-                      TAUX**2.0 ) / DAIR ) ) / KAPPA * TAUX &
+          UPROF(NKT+1) = UPROF(NKT) + ( SQRT( SQRT( TAUY**2 + &
+                      TAUX**2 ) / DAIR ) ) / KAPPA * TAUX &
                       / SQRT( TAUY**2.0 +TAUX**2.0 ) * LOG( ZWND &
                       / ZOFK(Z2) )
-          VPROF(NKT+1) = VPROF(NKT) + ( SQRT( SQRT( TAUY**2.0 + &
-                      TAUX**2.0 ) / DAIR ) ) / KAPPA * TAUY &
-                      / SQRT( TAUY**2.0 +TAUX**2.0 ) * LOG( ZWND &
+          VPROF(NKT+1) = VPROF(NKT) + ( SQRT( SQRT( TAUY**2 + &
+                      TAUX**2 ) / DAIR ) ) / KAPPA * TAUY &
+                      / SQRT( TAUY**2 +TAUX**2 ) * LOG( ZWND &
                       / ZOFK(Z2) )
           IF (ITER .EQ. 3) THEN
              WND_1X = UPROF(NKT+1)
